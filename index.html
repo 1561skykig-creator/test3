@@ -3,246 +3,281 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>스마트 약 복용 관리</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css" />
+  <title>약 복용 관리</title>
   <style>
-    body { font-family: 'Pretendard', sans-serif; background-color: #f3f4f6; }
-    .toggle-checkbox:checked { right: 0; border-color: #3b82f6; }
-    .toggle-checkbox:checked + .toggle-label { background-color: #3b82f6; }
-    .toggle-checkbox { right: 0; z-index: 1; border-color: #e5e7eb; transition: all 0.3s; }
-    .toggle-label { background-color: #e5e7eb; transition: all 0.3s; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f4f6f9; margin: 0; padding: 16px; color: #333; }
+    .container { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    
+    .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .card-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    
+    /* 날짜 선택 헤더 */
+    .date-header { display: flex; justify-content: space-between; align-items: center; background: #eef2ff; padding: 12px 16px; border-radius: 12px; }
+    .date-title { font-weight: bold; color: #3b82f6; font-size: 16px; }
+    .today-btn { background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+
+    /* 체크리스트 스타일 */
+    .checklist { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .check-item { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #e2e8f0; cursor: pointer; }
+    .check-item.checked { background: #f0fdf4; border-color: #86efac; }
+    .check-item input { width: 20px; height: 20px; accent-color: #22c55e; cursor: pointer; }
+    .check-label { font-weight: 600; font-size: 15px; }
+
+    /* 달력 스타일 */
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; text-align: center; margin-top: 10px; }
+    .day-name { font-size: 12px; font-weight: bold; color: #64748b; padding-bottom: 6px; }
+    .day-cell { min-height: 48px; border-radius: 10px; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; cursor: pointer; position: relative; transition: all 0.2s; border: 2px solid transparent; }
+    .day-cell:hover { background: #e2e8f0; }
+    .day-cell.selected { border-color: #3b82f6; background: #eff6ff; font-weight: bold; }
+    .day-cell.other-month { opacity: 0.2; cursor: default; }
+    
+    /* 복용 상태 점 표시 */
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; }
+    .dot-green { background-color: #22c55e; }
+    .dot-red { background-color: #ef4444; }
+
+    /* 범례 */
+    .legend { display: flex; gap: 12px; font-size: 12px; color: #64748b; }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+
+    /* 저장 버튼 */
+    .save-btn { width: 100%; background: #3b82f6; color: white; border: none; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; margin-top: 12px; cursor: pointer; transition: background 0.2s; }
+    .save-btn:hover { background: #2563eb; }
+    
+    /* 로딩 상태 */
+    .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.3); display: none; justify-content: center; align-items: center; color: white; font-weight: bold; font-size: 18px; z-index: 100; }
   </style>
 </head>
-<body class="antialiased min-h-screen flex justify-center pb-24">
+<body>
 
-  <div class="w-full max-w-md p-5 bg-white shadow-xl min-h-screen flex flex-col justify-between">
-    <div>
-      <header class="mb-6 pt-2 flex justify-between items-center">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-800">💊 스마트 약 복용</h1>
-          <p id="today-date" class="text-gray-500 text-sm mt-1 font-medium"></p>
-        </div>
-      </header>
+  <div class="container">
+    <!-- 선택된 날짜 헤더 -->
+    <div class="card">
+      <div class="date-header">
+        <span class="date-title" id="selectedDateDisplay">2026-09-21 복용 현황</span>
+        <button class="today-btn" onclick="selectToday()">오늘로 이동</button>
+      </div>
 
-      <section class="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-2xl mb-6 shadow-sm border border-blue-100">
-        <div class="flex justify-between items-center mb-3">
-          <h2 class="text-sm font-bold text-blue-900">이번 달 복용 현황</h2>
-          <span class="text-xs text-blue-600 bg-white px-2 py-1 rounded-full shadow-xs">🟢완료 🔴미완료</span>
-        </div>
-        <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-center text-xs"></div>
-      </section>
+      <!-- 약 체크리스트 -->
+      <div class="checklist" id="checklist">
+        <label class="check-item" for="dawn_probiotics">
+          <span class="check-label">🌅 새벽 유산균</span>
+          <input type="checkbox" id="dawn_probiotics" onchange="onCheckboxChange()">
+        </label>
+        <label class="check-item" for="morning_bp">
+          <span class="check-label">☀️ 아침 혈압약</span>
+          <input type="checkbox" id="morning_bp" onchange="onCheckboxChange()">
+        </label>
+        <label class="check-item" for="morning_ibs">
+          <span class="check-label">☀️ 아침 과민성대장약</span>
+          <input type="checkbox" id="morning_ibs" onchange="onCheckboxChange()">
+        </label>
+        <label class="check-item" for="lunch_supp">
+          <span class="check-label">🍽️ 점심 영양제</span>
+          <input type="checkbox" id="lunch_supp" onchange="onCheckboxChange()">
+        </label>
+        <label class="check-item" for="evening_ibs">
+          <span class="check-label">🌙 저녁 과민성대장약</span>
+          <input type="checkbox" id="evening_ibs" onchange="onCheckboxChange()">
+        </label>
+        <label class="check-item" for="evening_hair">
+          <span class="check-label">🌙 저녁 탈모약</span>
+          <input type="checkbox" id="evening_hair" onchange="onCheckboxChange()">
+        </label>
+      </div>
 
-      <form id="med-form" class="space-y-4">
-        
-        <!-- 새벽 (신규 추가) -->
-        <section class="bg-purple-50/60 p-4 rounded-2xl border border-purple-100">
-          <h3 class="text-sm font-bold text-purple-800 mb-3">🌅 새벽 (기상 직후)</h3>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-700 text-sm font-medium">유산균</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="dawn_probiotics" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="dawn_probiotics" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-        </section>
-
-        <!-- 아침 -->
-        <section class="bg-blue-50/60 p-4 rounded-2xl border border-blue-100">
-          <h3 class="text-sm font-bold text-blue-800 mb-3">☀️ 아침 (식사 후)</h3>
-          <div class="flex justify-between items-center mb-2.5">
-            <span class="text-gray-700 text-sm font-medium">혈압약</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="morning_bp" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="morning_bp" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-700 text-sm font-medium">과민성대장약</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="morning_ibs" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="morning_ibs" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-        </section>
-
-        <!-- 점심 -->
-        <section class="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-100">
-          <h3 class="text-sm font-bold text-emerald-800 mb-3">🍽️ 점심 (식후)</h3>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-700 text-sm font-medium">영양제 (합쎈, 오메가3 등)</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="lunch_supp" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="lunch_supp" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-        </section>
-
-        <!-- 저녁 -->
-        <section class="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100">
-          <h3 class="text-sm font-bold text-indigo-800 mb-3">🌙 저녁 (식후)</h3>
-          <div class="flex justify-between items-center mb-2.5">
-            <span class="text-gray-700 text-sm font-medium">과민성대장약</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="evening_ibs" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="evening_ibs" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-gray-700 text-sm font-medium">탈모약</span>
-            <div class="relative inline-block w-10 mr-1 select-none">
-              <input type="checkbox" id="evening_hair" onchange="autoSaveLocal()" class="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label for="evening_hair" class="toggle-label block overflow-hidden h-5 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-        </section>
-      </form>
+      <button class="save-btn" onclick="saveRecord()">저장하기</button>
     </div>
 
-    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-center max-w-md mx-auto">
-      <button type="button" id="submit-btn" onclick="saveRecord()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition text-base">
-        오늘 복용 완료 기록하기 ✨
-      </button>
+    <!-- 달력 카드 -->
+    <div class="card">
+      <div class="card-title">
+        <span id="calendarMonthTitle">이번 달 복용 현황</span>
+        <div class="legend">
+          <div class="legend-item"><div class="status-dot dot-green"></div>완료</div>
+          <div class="legend-item"><div class="status-dot dot-red"></div>미완료</div>
+        </div>
+      </div>
+
+      <div class="calendar-grid">
+        <div class="day-name">일</div>
+        <div class="day-name">월</div>
+        <div class="day-name">화</div>
+        <div class="day-name">수</div>
+        <div class="day-name">목</div>
+        <div class="day-name">금</div>
+        <div class="day-name">토</div>
+      </div>
+      <div class="calendar-grid" id="calendarDays"></div>
     </div>
   </div>
 
+  <div class="loading-overlay" id="loading">저장 중...</div>
+
   <script>
-    // ⚙️ 여기에 구글 웹 앱 URL을 넣으세요! (새 배포 후 바뀐 URL이 있다면 그걸로 교체!)
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzivawEhkkqkG-aidw60TMu2scn7IGZy0yvZAZ0dWzN0Gle8EduUCsvOVYcTc07UUqA/exec';
+    // ⚠️ 여기에 본인의 구글 웹앱 URL을 입력해 주세요.
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrIlzNFupBqmHpfKfDrQ9k-6-uaOt55aic4ptp5DNp0hpYNuhwVHZm4Pufxjm3iYwOsw/exec';
 
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-    const dateStrFormatted = `${year}-${String(month + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    let currentSelectedDate = getTodayStr();
+    let recordsData = {}; // 서버에서 가져온 전체 날짜별 기록 저장소
 
-    const days = ['일','월','화','수','목','금','토'];
-    document.getElementById('today-date').innerText = `${year}년 ${month + 1}월 ${today.getDate()}일 (${days[today.getDay()]})`;
+    const checkKeys = [
+      'dawn_probiotics', 
+      'morning_bp', 
+      'morning_ibs', 
+      'lunch_supp', 
+      'evening_ibs', 
+      'evening_hair'
+    ];
 
-    // 새벽 유산균 ID 추가됨
-    const medIds = ['dawn_probiotics', 'morning_bp', 'morning_ibs', 'lunch_supp', 'evening_ibs', 'evening_hair'];
-
-    function normalizeDate(dStr) {
-      if (!dStr) return '';
-      let str = String(dStr).trim();
-      let parts = str.split(/[\.\-\/]/).map(p => p.trim()).filter(p => p.length > 0);
-      if (parts.length >= 3) {
-        let y = parts[0];
-        let m = parts[1].padStart(2, '0');
-        let d = parts[2].padStart(2, '0');
-        return `${y}-${m}-${d}`;
-      }
-      return str;
+    // YYYY-MM-DD 변환 함수
+    function getTodayStr() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      loadLocalState();
-      loadHistoryAndRenderCalendar();
-    });
+    window.onload = function() {
+      renderCalendar();
+      fetchRecords();
+    };
 
-    function autoSaveLocal() {
-      const state = {};
-      medIds.forEach(id => {
-        state[id] = document.getElementById(id).checked;
+    // 오늘로 이동 버튼
+    function selectToday() {
+      selectDate(getTodayStr());
+    }
+
+    // 날짜 선택 클릭 처리
+    function selectDate(dateStr) {
+      currentSelectedDate = dateStr;
+      document.getElementById('selectedDateDisplay').innerText = `${dateStr} 복용 현황`;
+      
+      // 체크박스 상태 복원
+      const dayRecord = recordsData[dateStr] || {};
+      checkKeys.forEach(key => {
+        const checkbox = document.getElementById(key);
+        checkbox.checked = (dayRecord[key] === '복용');
+        updateCheckItemStyle(checkbox);
       });
-      localStorage.setItem(`med_state_${dateStrFormatted}`, JSON.stringify(state));
+
+      renderCalendar();
     }
 
-    function loadLocalState() {
-      const saved = localStorage.getItem(`med_state_${dateStrFormatted}`);
-      if (saved) {
-        const state = JSON.parse(saved);
-        medIds.forEach(id => {
-          if (state[id] !== undefined) {
-            document.getElementById(id).checked = state[id];
-          }
-        });
+    // 체크박스 클릭 시 실시간 스타일 반영 & 달력 초록색/빨간색 바로 변경!
+    function onCheckboxChange() {
+      checkKeys.forEach(key => {
+        const checkbox = document.getElementById(key);
+        updateCheckItemStyle(checkbox);
+      });
+
+      // 현재 선택된 날짜 데이터 임시 업데이트
+      if (!recordsData[currentSelectedDate]) {
+        recordsData[currentSelectedDate] = {};
+      }
+      
+      checkKeys.forEach(key => {
+        recordsData[currentSelectedDate][key] = document.getElementById(key).checked ? '복용' : '미복용';
+      });
+
+      // 즉시 달력 점 색상 업데이트
+      renderCalendar();
+    }
+
+    function updateCheckItemStyle(checkbox) {
+      const label = checkbox.closest('.check-item');
+      if (checkbox.checked) {
+        label.classList.add('checked');
+      } else {
+        label.classList.remove('checked');
       }
     }
 
-    async function loadHistoryAndRenderCalendar() {
-      const grid = document.getElementById('calendar-grid');
-      grid.innerHTML = '<div class="col-span-7 text-center py-4 text-gray-400">데이터 동기화 중... ⏳</div>';
+    // 6개 약을 다 먹었는지 확인하는 함수
+    function isAllChecked(record) {
+      if (!record) return false;
+      return checkKeys.every(key => record[key] === '복용');
+    }
 
-      let historyMap = {};
-      try {
-        const response = await fetch(SCRIPT_URL);
-        const data = await response.json();
-        
-        if (Array.isArray(data)) {
+    // 약을 1개라도 체크했거나 기록이 있는지 확인
+    function hasAnyChecked(record) {
+      if (!record) return false;
+      return checkKeys.some(key => record[key] === '복용');
+    }
+
+    // 달력 그리기
+    function renderCalendar() {
+      const daysContainer = document.getElementById('calendarDays');
+      daysContainer.innerHTML = '';
+
+      const [year, month] = currentSelectedDate.split('-').map(Number);
+      document.getElementById('calendarMonthTitle').innerText = `${year}년 ${month}월 복용 현황`;
+
+      const firstDay = new Date(year, month - 1, 1).getDay();
+      const lastDate = new Date(year, month, 0).getDate();
+
+      // 지난달 공백 칸
+      for (let i = 0; i < firstDay; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'day-cell other-month';
+        daysContainer.appendChild(cell);
+      }
+
+      // 이번 달 날짜들
+      for (let day = 1; day <= lastDate; day++) {
+        const dayStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
+        if (dayStr === currentSelectedDate) cell.classList.add('selected');
+
+        cell.innerText = day;
+
+        // 클릭 이벤트 연결 (다른 날짜 클릭 가능!)
+        cell.onclick = () => selectDate(dayStr);
+
+        // 복용 상태 점 표시 (실시간 확인)
+        const record = recordsData[dayStr];
+        if (record) {
+          const dot = document.createElement('div');
+          dot.className = 'status-dot';
+          
+          if (isAllChecked(record)) {
+            dot.classList.add('dot-green'); // 6개 모두 복용 완료 🟢
+          } else if (hasAnyChecked(record)) {
+            dot.classList.add('dot-red');   // 일부만 복용함 🔴
+          }
+          cell.appendChild(dot);
+        }
+
+        daysContainer.appendChild(cell);
+      }
+    }
+
+    // 구글 시트에서 전체 기록 불러오기
+    function fetchRecords() {
+      fetch(SCRIPT_URL)
+        .then(res => res.json())
+        .then(data => {
+          recordsData = {};
           data.forEach(row => {
             if (row.date) {
-              const cleanDate = normalizeDate(row.date);
-              
-              // 🔴 달력이 안 바뀌었던 원인 해결! 모든 약(6개)이 정확히 '복용'인지 체크
-              const isAllCompleted = (
-                row.dawn_probiotics === '복용' &&
-                row.morning_bp === '복용' && 
-                row.morning_ibs === '복용' && 
-                row.lunch_supp === '복용' && 
-                row.evening_ibs === '복용' && 
-                row.evening_hair === '복용'
-              );
-              
-              historyMap[cleanDate] = isAllCompleted;
-
-              if (cleanDate === dateStrFormatted) {
-                document.getElementById('dawn_probiotics').checked = (row.dawn_probiotics === '복용');
-                document.getElementById('morning_bp').checked = (row.morning_bp === '복용');
-                document.getElementById('morning_ibs').checked = (row.morning_ibs === '복용');
-                document.getElementById('lunch_supp').checked = (row.lunch_supp === '복용');
-                document.getElementById('evening_ibs').checked = (row.evening_ibs === '복용');
-                document.getElementById('evening_hair').checked = (row.evening_hair === '복용');
-                autoSaveLocal(); 
-              }
+              recordsData[row.date] = row;
             }
           });
-        }
-      } catch (e) {
-        console.error('데이터 로드 실패:', e);
-      }
-
-      grid.innerHTML = '';
-      days.forEach(d => {
-        grid.innerHTML += `<div class="font-bold text-gray-500 py-1">${d}</div>`;
-      });
-
-      const firstDayIndex = new Date(year, month, 1).getDay();
-      const totalDays = new Date(year, month + 1, 0).getDate();
-
-      for (let i = 0; i < firstDayIndex; i++) {
-        grid.innerHTML += `<div></div>`;
-      }
-
-      for (let day = 1; day <= totalDays; day++) {
-        const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        let statusBadge = '<div class="text-xs text-gray-300">·</div>';
-        
-        if (historyMap[dStr] === true) {
-          statusBadge = '<div class="text-xs text-green-600 font-bold">🟢</div>';
-        } else if (historyMap[dStr] === false || (dStr < dateStrFormatted && historyMap[dStr] === undefined)) {
-          statusBadge = '<div class="text-xs text-red-400">🔴</div>';
-        }
-
-        const isToday = (dStr === dateStrFormatted) ? 'border border-blue-500 font-bold bg-blue-50' : '';
-        
-        grid.innerHTML += `
-          <div class="p-1 rounded-lg flex flex-col items-center justify-center ${isToday}">
-            <span class="text-gray-700">${day}</span>
-            ${statusBadge}
-          </div>
-        `;
-      }
+          selectDate(currentSelectedDate);
+        })
+        .catch(err => console.error("데이터 로드 실패:", err));
     }
 
-    async function saveRecord() {
-      autoSaveLocal(); 
+    // 기록 저장하기
+    function saveRecord() {
+      const loading = document.getElementById('loading');
+      loading.style.display = 'flex';
 
-      const btn = document.getElementById('submit-btn');
-      btn.innerText = '스프레드시트에 덮어쓰는 중... ⏳';
-      btn.disabled = true;
-
-      const data = {
-        date: dateStrFormatted,
+      const payload = {
+        date: currentSelectedDate,
         dawn_probiotics: document.getElementById('dawn_probiotics').checked ? '복용' : '미복용',
         morning_bp: document.getElementById('morning_bp').checked ? '복용' : '미복용',
         morning_ibs: document.getElementById('morning_ibs').checked ? '복용' : '미복용',
@@ -251,21 +286,25 @@
         evening_hair: document.getElementById('evening_hair').checked ? '복용' : '미복용'
       };
 
-      try {
-        await fetch(SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-        alert('오늘의 복용 기록이 성공적으로 업데이트되었습니다! 🎉');
-        loadHistoryAndRenderCalendar(); // 저장 후 달력 🟢로 바뀌는지 다시 그리기
-      } catch (error) {
-        alert('저장에 실패했습니다.');
-      } finally {
-        btn.innerText = '오늘 복용 완료 기록하기 ✨';
-        btn.disabled = false;
-      }
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        contentType: 'application/json',
+        body: JSON.stringify(payload)
+      })
+      .then(res => res.json())
+      .then(res => {
+        loading.style.display = 'none';
+        if (res.result === 'success') {
+          alert(`${currentSelectedDate} 기록이 정상적으로 저장되었습니다!`);
+          fetchRecords(); // 시트 데이터 최신화
+        } else {
+          alert('저장 실패: ' + res.message);
+        }
+      })
+      .catch(err => {
+        loading.style.display = 'none';
+        alert('저장 도중 오류가 발생했습니다.');
+      });
     }
   </script>
 </body>
